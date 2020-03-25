@@ -6,6 +6,9 @@ LDI = 0b10000010
 PRN = 0b01000111 
 HLT = 0b00000001
 MUL = 0b10100010
+# Stack
+PUSH = 0b01000101   # push the value in the given register on the stack
+POP = 0b01000110    # pop the value at the top of the register (stack) 
 
 class CPU:
     """Main CPU class."""
@@ -17,6 +20,7 @@ class CPU:
         self.ram = [0] * 256
         self.reg = [0] * 8
         self.pc = 0
+        self.sp = 7
 
     def load(self, filename):
         """Load a program into memory."""
@@ -110,6 +114,22 @@ class CPU:
                 self.pc += 3
             elif opcode == HLT:
                 sys.exit(0)
+            elif opcode == PUSH: #DAY 3 STACK!!!!!!!!
+                # you push from the memory to the register
+                # UPDATE THE STACK POINTER TO THE MEMORY 
+                # decrement the sp and copy (value in the register) --> (address that is being pointed to)
+                self.reg[self.sp] -= 1
+                val = self.reg[operand_a]
+                self.ram[self.reg[self.sp]] = val 
+                self.pc += 2
+            elif opcode == POP: 
+                # pop from the register to the memory 
+                # pop the value from the stack --> copy the value from the address being pointed to 
+                reg = operand_a 
+                val = self.ram[self.reg[self.sp]]
+                self.reg[reg] = val 
+                self.reg[self.sp] += 1       #increment?
+                self.pc += 2
             else: 
                 print(f"Did not work")
                 sys.exit(1)
@@ -125,6 +145,3 @@ class CPU:
     
     def ram_write(self, mdr, mar):
         self.ram[mar] = mdr
-
-
-# 

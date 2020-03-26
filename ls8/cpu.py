@@ -10,6 +10,13 @@ MUL = 0b10100010
 PUSH = 0b01000101   # push the value in the given register on the stack
 POP = 0b01000110    # pop the value at the top of the register (stack) 
 
+CALL = 0b01010000
+RET = 0b00010001
+ADD = 0b10100000
+
+SP = 7 #for stack methods 
+
+
 class CPU:
     """Main CPU class."""
 
@@ -20,7 +27,74 @@ class CPU:
         self.ram = [0] * 256
         self.reg = [0] * 8
         self.pc = 0
-        self.sp = 7
+        self.bt = {       # branch table for code beautification 
+            LDI: self.op_ldi,
+            PRN: self.op_prn,
+            HLT: self.op_hlt,
+            ADD: self.op_add,
+            MUL: self.op_mul,
+            POP: self.op_pop,
+            PUSH: self.op_push,
+            CALL: self.op_call,
+            RET: self.op_ret,
+        }
+
+    def op_ldi(self, operand_a, operand_b):
+        self.reg[operand_a] = operand_b
+
+    def op_prn(self, operand_a, operand_b):
+        print(self.reg[operand_a])
+
+    def op_hlt(self, operand_a, operand_b):
+        sys.exit(0)
+
+    def op_add(self):
+        self.alu("ADD", self.ram_read(self.pc + 1), self.ram_read(self.pc+2))
+
+    def op_mul(self, operand_a, operand_b):
+        self.alu("MUL", operand_a, operand_b)
+
+    def op_pop(self, operand_a, operand_b):
+        self.reg[operand_a] = self.pop_val()
+
+    def op_push(self, operand_a, operand_b):
+        self.push_val(self.reg[operand_a])
+
+    def op_call(self, operand_a, operand_b):
+        self.push_val(self.pc + 2)
+        self.pc = self.reg[operand_a]
+
+    def op_ret(self):
+        self.pc = self.ram[self.reg[SP]]
+        self.reg[SP] += 1
+
+
+
+
+
+
+    def ram_read(self, mar):
+        #mar = memory address register // mdr = memory data register 
+        #read the address and write out the number (data) 
+        mdr = self.ram[mar]
+        return mdr
+    
+    def ram_write(self, mdr, mar):
+        self.ram[mar] = mdr
+
+    def push_val(self, val):
+        self.reg[SP] -= 1
+        self.ram_write(val, self.reg[SP])
+
+    def pop_val(self):
+        val = self.ram_read(self.reg[SP])
+        self.reg[SP] += 1
+        return val
+
+
+
+
+
 
     def load(self, filename):
         """Load a program into memory."""
@@ -45,20 +119,7 @@ class CPU:
             print("cant find file")
             sys.exit(2)
 
-        # For now, we've just hardcoded a program:
-        # program = [
-        #     # From print8.ls8
-        #     0b10000010, # LDI R0,8
-        #     0b00000000,
-        #     0b00001000,
-        #     0b01000111, # PRN R0
-        #     0b00000000,
-        #     0b00000001, # HLT
-        # ]
 
-        # for instruction in program:
-        #     self.ram[address] = instruction
-        #     address += 1
 
 
     def alu(self, op, reg_a, reg_b):
@@ -70,7 +131,7 @@ class CPU:
         elif op == "SUB":
             self.reg[reg_a] -= self.reg[reg_b]
         ## ADDING MULTIPLICATION
-        elif op == MUL:
+        elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
@@ -95,53 +156,20 @@ class CPU:
 
         print()
 
+
+
     def run(self):
-        """Run the CPU."""
-        #
-        
+        """Run the CPU."""    
         while True: 
-            opcode = self.ram[self.pc]
+            instruction = self.ram[self.pc]
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
-            if opcode == LDI: 
-                self.reg[operand_a] = operand_b
-                self.pc += 3
-            elif opcode == PRN: 
-                print(self.reg[operand_a])
-                self.pc += 2 
-            elif opcode == MUL:  
-                self.alu(opcode, operand_a, operand_b)
-                self.pc += 3
-            elif opcode == HLT:
-                sys.exit(0)
-            elif opcode == PUSH: #DAY 3 STACK!!!!!!!!
-                # you push from the memory to the register
-                # UPDATE THE STACK POINTER TO THE MEMORY 
-                # decrement the sp and copy (value in the register) --> (address that is being pointed to)
-                self.reg[self.sp] -= 1
-                val = self.reg[operand_a]
-                self.ram[self.reg[self.sp]] = val 
-                self.pc += 2
-            elif opcode == POP: 
-                # pop from the register to the memory 
-                # pop the value from the stack --> copy the value from the address being pointed to 
-                reg = operand_a 
-                val = self.ram[self.reg[self.sp]]
-                self.reg[reg] = val 
-                self.reg[self.sp] += 1       #increment?
-                self.pc += 2
-            else: 
-                print(f"Did not work")
-                sys.exit(1)
-
+            instruction_length = (instruction >> 6) + 1
+            instruction_set_pc = (instruction >> 4) == 1
+            if instruction in self.bt:
+                self.bt[instruction](operand_a, operand_b)
+            #check if opcode instructions sets the pc
+            # If not, increment pc by instruction length
+            if instruction_set_pc != 1:
+                self.pc += instruction_length
         
-    # ADDING 2 MORE METHODS 
-    def ram_read(self, mar):
-        #mar = memory address register
-        #mdr = memory data register 
-        # read the address and write out the number (data) 
-        mdr = self.ram[mar]
-        return mdr
-    
-    def ram_write(self, mdr, mar):
-        self.ram[mar] = mdr
